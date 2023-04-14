@@ -1,15 +1,10 @@
 pipeline {
-	agent any
-    environment {
-        NEW_VERSION = '1.0.0'
-        ADMIN_CREDENTIALS = credentials('admin_user_credentials')
-    }
+    agent any
     parameters {
-        string(name: 'VERSION', defaultValue: '', description: 'deployment version')
-		choice(name: 'VERSION', choices: ['1.1.0','1.2.0','1.3.0'], description: '')
-		booleanParam(name: 'executeTests', defaultValue: true, description: '')
+        choice(name: 'VERSION', choices: ['1.1.0','1.2.0','1.3.0'], description: '')
+        booleanParam(name: 'executeTests', defaultValue: true, description: '')
     }
-	stages {
+    stages {
         stage("init") {
             steps {
                 script {
@@ -17,55 +12,32 @@ pipeline {
                 }
             }
         }
-
-		stage("build") {
-            when {
-                expression {
-                    env.GIT_BRANCH == 'origin/main'
-                }
+        stage("Checkout") {
+            steps {
+                checkout scm
             }
-			steps {
-				echo 'building the applicaiton...'
-                echo "building version ${NEW_VERSION}"
-                script {
-                    gv.buildApp()
-                }
-			}
-		}
-		stage("test") {
+        }
+        stage("Build") {
+            steps {
+                sh 'docker-compose build web'
+            }
+        }
+        stage("test") {
             when {
                 expression {
                     params.executeTests
                 }
             }
-			steps {
-				echo 'testing the applicaiton...'
+            steps {
                 script {
                     gv.testApp()
                 }
-			}
-		}
-		stage("deploy") {
-			steps {
-				echo 'deploying the applicaiton...'
-                echo "deploying with ${ADMIN_CREDENTIALS}"
-                sh 'printf ${ADMIN_CREDENTIALS}'
-                echo "deploying version ${params.VERSION}"
-                script {
-                    gv.deployApp()
-                }
-			}
-		}
-	}
-    post {
-        always {
-            echo 'building..'
+            }
         }
-        success {
-            echo 'success'
-        }
-        failure {
-            echo 'failure'
+        stage("deploy") {
+            steps {
+                sh "docker-compose up -d"
+            }
         }
     }
 }
